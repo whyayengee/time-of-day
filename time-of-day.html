@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time of Day Component</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #f9f9f0;
+      --card-bg: #e9e4cf;
+      --text-color: #2d2d2d;
+      --text-muted: rgba(45, 45, 45, 0.5);
+      --grid-cell-bg: rgba(45, 45, 45, 0.08);
+      --sun-color: #ffd900;
+      --sky-color: #87ceeb;
+      --progress-color: rgba(255, 166, 0, 0.5);
+      --indicator-color: #ffa600;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      background: var(--bg-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      gap: 32px;
+      transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Playground Controls */
+    .playground-controls {
+      background: var(--controls-bg, white);
+      padding: 28px 36px;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+      max-width: 627px;
+      transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .control-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--controls-muted, #999);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .pause-hint {
+      opacity: 0.6;
+      font-size: 9px;
+      padding: 2px 6px;
+      background: rgba(0,0,0,0.05);
+      border-radius: 4px;
+      transition: opacity 0.3s ease;
+    }
+
+    .pause-hint.paused {
+      background: rgba(249, 115, 22, 0.15);
+      color: #f97316;
+      opacity: 1;
+    }
+
+    .time-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 32px;
+      font-weight: 500;
+      color: var(--controls-text, #2d2d2d);
+      letter-spacing: -1px;
+      transition: color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .phase-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 8px 16px;
+      border-radius: 24px;
+      background: #ffd900;
+      color: #2d2d2d;
+      transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1), color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      font-weight: 500;
+    }
+
+    .time-slider {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: linear-gradient(to right, 
+        #1e1e2e 0%, 
+        #2d2d4a 8%,
+        #6366f1 15%,
+        #f97316 22%, 
+        #ffa600 28%, 
+        #ffd900 40%,
+        #ffd900 60%,
+        #ffa600 72%, 
+        #f97316 78%, 
+        #6366f1 85%,
+        #2d2d4a 92%,
+        #1e1e2e 100%
+      );
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .time-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border: 2px solid #ffa600;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      transition: border-color 0.3s ease, transform 0.15s ease;
+    }
+
+    .time-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+    }
+
+    .time-slider::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: white;
+      border: 2px solid #ffa600;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+
+    .time-markers {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--controls-muted, #bbb);
+      letter-spacing: 0.5px;
+      transition: color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Time of Day Component */
+    .time-component {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 627px;
+    }
+
+    /* Sunlight Grid Card */
+    .sunlight-card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      height: 240px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 4px 8px -2px rgba(12, 12, 13, 0.06);
+      transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Unified Grid */
+    .unified-grid {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      bottom: 44px;
+      display: grid;
+      grid-template-columns: repeat(66, 1fr);
+      grid-template-rows: repeat(14, 1fr);
+      gap: 2px;
+    }
+
+    .grid-cell {
+      border-radius: 2px;
+      transition: background 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                  box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .card-footer {
+      position: absolute;
+      bottom: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .narrative {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 19px;
+      font-weight: 400;
+      font-style: italic;
+      color: var(--text-color);
+      opacity: 0.55;
+      letter-spacing: 0.2px;
+      transition: color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .location-temp {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-color);
+      opacity: 0.45;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Time Slider Card */
+    .time-slider-card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      height: 72px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 4px 8px -2px rgba(12, 12, 13, 0.06);
+      transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .time-progress {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background: var(--progress-color);
+      border-radius: 14px 0 0 14px;
+      transition: width 0.08s linear, background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .time-ticks {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 16px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      padding: 0 16px;
+    }
+
+    .tick {
+      width: 1px;
+      height: 8px;
+      background: rgba(45, 45, 45, 0.1);
+      transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tick.major {
+      height: 14px;
+      background: rgba(45, 45, 45, 0.18);
+    }
+
+    .time-indicator {
+      position: absolute;
+      top: 0;
+      width: 5px;
+      height: 100%;
+      background: var(--indicator-color);
+      border-radius: 0;
+      transition: left 0.08s linear, background 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 12px var(--indicator-color);
+    }
+
+    .time-indicator.at-start {
+      border-radius: 14px 0 0 14px;
+    }
+
+    .time-indicator.at-end {
+      border-radius: 0 14px 14px 0;
+    }
+
+    .slider-content {
+      position: absolute;
+      bottom: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+
+    .time-label {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 19px;
+      font-weight: 400;
+      font-style: italic;
+      color: var(--text-color);
+      opacity: 0.55;
+      letter-spacing: 0.2px;
+      transition: color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .current-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-color);
+      opacity: 0.45;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      transition: color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  </style>
+</head>
+<body>
+  <!-- Playground Controls -->
+  <div class="playground-controls">
+    <div class="control-header">
+      <div>
+        <div class="control-label">
+          <span>Time of Day</span>
+          <span class="pause-hint" id="pauseHint">press space to pause</span>
+        </div>
+        <div class="time-display" id="controlTimeDisplay">5:45 PM</div>
+      </div>
+      <div class="phase-badge" id="phaseBadge">Golden Hour</div>
+    </div>
+    <input 
+      type="range" 
+      class="time-slider" 
+      id="timeControl" 
+      min="0" 
+      max="1440" 
+      value="360"
+    >
+    <div class="time-markers">
+      <span>12 AM</span>
+      <span>6 AM</span>
+      <span>12 PM</span>
+      <span>6 PM</span>
+      <span>12 AM</span>
+    </div>
+  </div>
+
+  <!-- Time of Day Component -->
+  <div class="time-component">
+    <!-- Sunlight Grid Card -->
+    <div class="sunlight-card" id="sunlightCard">
+      <div class="unified-grid" id="unifiedGrid"></div>
+      <div class="card-footer">
+        <span class="narrative" id="narrative">The sun is rising.</span>
+        <span class="location-temp" id="locationTemp">SAN FRANCISCO 51°F</span>
+      </div>
+    </div>
+
+    <!-- Time Slider Card -->
+    <div class="time-slider-card" id="timeSliderCard">
+      <div class="time-progress" id="timeProgress"></div>
+      <div class="time-ticks" id="timeTicks"></div>
+      <div class="time-indicator" id="timeIndicator"></div>
+      <div class="slider-content">
+        <span class="time-label">Time</span>
+        <span class="current-time" id="currentTime">5:45 PM PST</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Grid configuration
+    const GRID_COLS = 66;
+    const GRID_ROWS = 14;
+    const TOTAL_CELLS = GRID_COLS * GRID_ROWS;
+
+    // Autoplay state
+    let isPlaying = true;
+    let animationFrame = null;
+    let lastTime = 0;
+    const MINUTES_PER_SECOND = 20; // 1 hour every 3 seconds (60 min / 3 sec = 20 min/sec)
+
+    // Time periods and narratives
+    const TIME_PERIODS = [
+      { start: 0, end: 300, narrative: "The city sleeps. What about you?", phase: "night", label: "Night" },
+      { start: 300, end: 360, narrative: "Almost dawn. Early birds stir.", phase: "dawn", label: "Dawn" },
+      { start: 360, end: 480, narrative: "The sun is rising. A new day begins.", phase: "sunrise", label: "Sunrise" },
+      { start: 480, end: 600, narrative: "Morning. Coffee's brewing somewhere.", phase: "morning", label: "Morning" },
+      { start: 600, end: 720, narrative: "Late morning. The day picks up.", phase: "midday", label: "Late Morning" },
+      { start: 720, end: 840, narrative: "High noon. The sun's at its peak.", phase: "noon", label: "Noon" },
+      { start: 840, end: 960, narrative: "Afternoon. Time moves slowly.", phase: "afternoon", label: "Afternoon" },
+      { start: 960, end: 1080, narrative: "Golden hour. Everything glows.", phase: "golden", label: "Golden Hour" },
+      { start: 1080, end: 1140, narrative: "The sun is setting. Day winds down.", phase: "sunset", label: "Sunset" },
+      { start: 1140, end: 1200, narrative: "Dusk. The in-between hour.", phase: "dusk", label: "Dusk" },
+      { start: 1200, end: 1440, narrative: "Night falls. The stars take over.", phase: "night", label: "Night" }
+    ];
+
+    // Color schemes for different times - clean and simple
+    const COLOR_SCHEMES = {
+      night: {
+        bg: '#141420',
+        cardBg: '#1c1c2a',
+        controlsBg: '#1c1c2a',
+        controlsText: '#b8b4a8',
+        controlsMuted: '#666',
+        textColor: '#b8b4a8',
+        gridCellBg: 'rgba(80, 80, 110, 0.2)',
+        sunColor: '#6366f1',
+        starColor: '#a5b4fc',
+        progressColor: 'rgba(99, 102, 241, 0.3)',
+        indicatorColor: '#6366f1',
+        badgeBg: '#4f46e5',
+        badgeText: '#fff',
+        tickColor: 'rgba(255, 255, 255, 0.08)',
+        tickMajorColor: 'rgba(255, 255, 255, 0.15)'
+      },
+      dawn: {
+        bg: '#1a1825',
+        cardBg: '#252233',
+        controlsBg: '#252233',
+        controlsText: '#d5d0c5',
+        controlsMuted: '#888',
+        textColor: '#d5d0c5',
+        gridCellBg: 'rgba(100, 80, 120, 0.2)',
+        sunColor: '#fb923c',
+        starColor: '#c4b5fd',
+        progressColor: 'rgba(251, 146, 60, 0.35)',
+        indicatorColor: '#f97316',
+        badgeBg: '#f97316',
+        badgeText: '#fff',
+        tickColor: 'rgba(255, 255, 255, 0.1)',
+        tickMajorColor: 'rgba(255, 255, 255, 0.18)'
+      },
+      sunrise: {
+        bg: '#faf6ee',
+        cardBg: '#ede8da',
+        controlsBg: '#fff',
+        controlsText: '#2d2d2d',
+        controlsMuted: '#999',
+        textColor: '#2d2d2d',
+        gridCellBg: 'rgba(220, 200, 170, 0.4)',
+        sunColor: '#fdba74',
+        progressColor: 'rgba(253, 186, 116, 0.5)',
+        indicatorColor: '#fb923c',
+        badgeBg: '#fdba74',
+        badgeText: '#2d2d2d',
+        tickColor: 'rgba(45, 45, 45, 0.1)',
+        tickMajorColor: 'rgba(45, 45, 45, 0.18)'
+      },
+      morning: {
+        bg: '#fbfaf5',
+        cardBg: '#ebe6d6',
+        controlsBg: '#fff',
+        controlsText: '#2d2d2d',
+        controlsMuted: '#999',
+        textColor: '#2d2d2d',
+        gridCellBg: 'rgba(210, 200, 170, 0.35)',
+        sunColor: '#fcd34d',
+        progressColor: 'rgba(252, 211, 77, 0.5)',
+        indicatorColor: '#fbbf24',
+        badgeBg: '#fcd34d',
+        badgeText: '#2d2d2d',
+        tickColor: 'rgba(45, 45, 45, 0.1)',
+        tickMajorColor: 'rgba(45, 45, 45, 0.18)'
+      },
+      midday: {
+        bg: '#fcfcf8',
+        cardBg: '#e8e4d4',
+        controlsBg: '#fff',
+        controlsText: '#2d2d2d',
+        controlsMuted: '#999',
+        textColor: '#2d2d2d',
+        gridCellBg: 'rgba(200, 195, 170, 0.3)',
+        sunColor: '#fef08a',
+        progressColor: 'rgba(254, 240, 138, 0.55)',
+        indicatorColor: '#fde047',
+        badgeBg: '#fef08a',
+        badgeText: '#2d2d2d',
+        tickColor: 'rgba(45, 45, 45, 0.1)',
+        tickMajorColor: 'rgba(45, 45, 45, 0.18)'
+      },
+      noon: {
+        bg: '#fdfdfb',
+        cardBg: '#e6e2d2',
+        controlsBg: '#fff',
+        controlsText: '#2d2d2d',
+        controlsMuted: '#999',
+        textColor: '#2d2d2d',
+        gridCellBg: 'rgba(200, 195, 170, 0.25)',
+        sunColor: '#fef9c3',
+        progressColor: 'rgba(254, 249, 195, 0.6)',
+        indicatorColor: '#fef08a',
+        badgeBg: '#fef9c3',
+        badgeText: '#2d2d2d',
+        tickColor: 'rgba(45, 45, 45, 0.1)',
+        tickMajorColor: 'rgba(45, 45, 45, 0.18)'
+      },
+      afternoon: {
+        bg: '#fbfaf5',
+        cardBg: '#e9e5d5',
+        controlsBg: '#fff',
+        controlsText: '#2d2d2d',
+        controlsMuted: '#999',
+        textColor: '#2d2d2d',
+        gridCellBg: 'rgba(200, 195, 170, 0.3)',
+        sunColor: '#fef08a',
+        progressColor: 'rgba(254, 240, 138, 0.55)',
+        indicatorColor: '#fde047',
+        badgeBg: '#fef08a',
+        badgeText: '#2d2d2d',
+        tickColor: 'rgba(45, 45, 45, 0.1)',
+        tickMajorColor: 'rgba(45, 45, 45, 0.18)'
+      },
+      golden: {
+        bg: '#faf5ea',
+        cardBg: '#e8e0d0',
+        controlsBg: '#fff',
+        controlsText: '#2d2d2d',
+        controlsMuted: '#999',
+        textColor: '#2d2d2d',
+        gridCellBg: 'rgba(210, 195, 160, 0.35)',
+        sunColor: '#fbbf24',
+        progressColor: 'rgba(251, 191, 36, 0.5)',
+        indicatorColor: '#f59e0b',
+        badgeBg: '#fbbf24',
+        badgeText: '#2d2d2d',
+        tickColor: 'rgba(45, 45, 45, 0.1)',
+        tickMajorColor: 'rgba(45, 45, 45, 0.18)'
+      },
+      sunset: {
+        bg: '#f6ede2',
+        cardBg: '#e0d8cc',
+        controlsBg: '#fff',
+        controlsText: '#2d2d2d',
+        controlsMuted: '#999',
+        textColor: '#2d2d2d',
+        gridCellBg: 'rgba(215, 190, 160, 0.4)',
+        sunColor: '#fdba74',
+        progressColor: 'rgba(253, 186, 116, 0.5)',
+        indicatorColor: '#fb923c',
+        badgeBg: '#fdba74',
+        badgeText: '#2d2d2d',
+        tickColor: 'rgba(45, 45, 45, 0.12)',
+        tickMajorColor: 'rgba(45, 45, 45, 0.2)'
+      },
+      dusk: {
+        bg: '#1a1828',
+        cardBg: '#262438',
+        controlsBg: '#262438',
+        controlsText: '#ccc8bc',
+        controlsMuted: '#777',
+        textColor: '#ccc8bc',
+        gridCellBg: 'rgba(100, 80, 140, 0.18)',
+        sunColor: '#a78bfa',
+        starColor: '#c4b5fd',
+        progressColor: 'rgba(167, 139, 250, 0.3)',
+        indicatorColor: '#8b5cf6',
+        badgeBg: '#a78bfa',
+        badgeText: '#fff',
+        tickColor: 'rgba(255, 255, 255, 0.1)',
+        tickMajorColor: 'rgba(255, 255, 255, 0.16)'
+      }
+    };
+
+    // Store all grid cells with their coordinates
+    let allCells = [];
+    
+    // Seeded random for consistent star positions
+    function seededRandom(seed) {
+      const x = Math.sin(seed) * 10000;
+      return x - Math.floor(x);
+    }
+
+    // Temperature simulation
+    function getTemperature(minutes) {
+      const baseTemp = 51;
+      const variation = 15;
+      const peakHour = 900;
+      const coldestHour = 300;
+      
+      let tempOffset;
+      if (minutes < coldestHour) {
+        tempOffset = -variation * (1 - minutes / coldestHour);
+      } else if (minutes < peakHour) {
+        tempOffset = variation * ((minutes - coldestHour) / (peakHour - coldestHour));
+      } else {
+        tempOffset = variation * (1 - (minutes - peakHour) / (1440 - peakHour));
+      }
+      
+      return Math.round(baseTemp + tempOffset);
+    }
+
+    // Format time from minutes
+    function formatTime(minutes) {
+      const hours = Math.floor(minutes / 60);
+      const mins = Math.floor(minutes % 60);
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
+    }
+
+    // Get current time period
+    function getTimePeriod(minutes) {
+      return TIME_PERIODS.find(p => minutes >= p.start && minutes < p.end) || TIME_PERIODS[0];
+    }
+
+    // Check if it's night time
+    function isNight(minutes) {
+      return minutes < 330 || minutes >= 1170;
+    }
+
+    // Initialize the unified grid
+    function initUnifiedGrid() {
+      const grid = document.getElementById('unifiedGrid');
+      
+      for (let row = 0; row < GRID_ROWS; row++) {
+        for (let col = 0; col < GRID_COLS; col++) {
+          const cell = document.createElement('div');
+          cell.className = 'grid-cell';
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+          
+          // Pre-calculate if this cell can be a star (random but consistent)
+          const seed = row * GRID_COLS + col;
+          const isStar = seededRandom(seed) < 0.08; // 8% chance to be a star
+          
+          allCells.push({
+            element: cell,
+            row: row,
+            col: col,
+            isStar: isStar,
+            starBrightness: seededRandom(seed + 1000) // Random brightness for twinkle
+          });
+          
+          grid.appendChild(cell);
+        }
+      }
+    }
+
+    // Initialize time ticks
+    function initTicks() {
+      const ticksContainer = document.getElementById('timeTicks');
+      for (let i = 0; i <= 24; i++) {
+        const tick = document.createElement('div');
+        tick.className = 'tick' + (i % 6 === 0 ? ' major' : '');
+        ticksContainer.appendChild(tick);
+      }
+    }
+
+    // Apply color scheme
+    function applyColorScheme(scheme) {
+      const root = document.documentElement;
+      
+      document.body.style.background = scheme.bg;
+      
+      // Update controls panel
+      root.style.setProperty('--controls-bg', scheme.controlsBg);
+      root.style.setProperty('--controls-text', scheme.controlsText);
+      root.style.setProperty('--controls-muted', scheme.controlsMuted);
+      
+      document.getElementById('sunlightCard').style.background = scheme.cardBg;
+      document.getElementById('timeSliderCard').style.background = scheme.cardBg;
+      
+      root.style.setProperty('--text-color', scheme.textColor);
+      root.style.setProperty('--grid-cell-bg', scheme.gridCellBg);
+      root.style.setProperty('--sun-color', scheme.sunColor);
+      root.style.setProperty('--progress-color', scheme.progressColor);
+      root.style.setProperty('--indicator-color', scheme.indicatorColor);
+      
+      // Update badge
+      const badge = document.getElementById('phaseBadge');
+      badge.style.background = scheme.badgeBg;
+      badge.style.color = scheme.badgeText;
+      
+      // Update ticks
+      document.querySelectorAll('.tick').forEach(tick => {
+        tick.style.background = tick.classList.contains('major') 
+          ? scheme.tickMajorColor 
+          : scheme.tickColor;
+      });
+      
+      // Update text elements
+      document.querySelectorAll('.narrative, .time-label').forEach(el => {
+        el.style.color = scheme.textColor;
+      });
+      document.querySelectorAll('.location-temp, .current-time').forEach(el => {
+        el.style.color = scheme.textColor;
+      });
+      
+      // Update progress and indicator
+      document.getElementById('timeProgress').style.background = scheme.progressColor;
+      document.getElementById('timeIndicator').style.background = scheme.indicatorColor;
+    }
+
+    // Calculate sky visualization
+    function updateSkyVisualization(minutes, scheme) {
+      const night = isNight(minutes);
+      const centerCol = GRID_COLS / 2;
+      const time = Date.now() / 1000; // For twinkling
+      
+      // Calculate sun/light position and intensity
+      let sunCenterRow, lightIntensity, lightSpread;
+      
+      if (minutes < 300 || minutes > 1200) {
+        // Deep night
+        sunCenterRow = GRID_ROWS + 10;
+        lightIntensity = 0;
+        lightSpread = 0;
+      } else if (minutes < 360) {
+        // Pre-dawn (5-6 AM) - very gradual start, sun begins to peek
+        const progress = (minutes - 300) / 60;
+        // Ease in - slow start, accelerate
+        const easedProgress = progress * progress;
+        sunCenterRow = GRID_ROWS + 6 - (easedProgress * 4);
+        lightIntensity = easedProgress * 0.3;
+        lightSpread = easedProgress * 0.4;
+      } else if (minutes < 480) {
+        // Sunrise (6-8 AM) - sun rises smoothly from horizon
+        const progress = (minutes - 360) / 120;
+        // Smooth ease - starts where dawn left off
+        sunCenterRow = GRID_ROWS + 2 - (progress * 6);
+        lightIntensity = 0.3 + (progress * 0.5);
+        lightSpread = 0.4 + (progress * 0.4);
+      } else if (minutes < 720) {
+        // Morning to noon - sun high, light fills sky
+        const progress = (minutes - 480) / 240;
+        sunCenterRow = GRID_ROWS - 5 - (progress * 4);
+        lightIntensity = 0.8 + (progress * 0.2);
+        lightSpread = 0.8 + (progress * 0.2);
+      } else if (minutes < 960) {
+        // Noon to afternoon - light everywhere
+        const progress = (minutes - 720) / 240;
+        sunCenterRow = -1 + (progress * 6); // Sun moves across top
+        lightIntensity = 1 - (progress * 0.1);
+        lightSpread = 1;
+      } else if (minutes < 1080) {
+        // Late afternoon to golden hour
+        const progress = (minutes - 960) / 120;
+        sunCenterRow = 5 + (progress * 4);
+        lightIntensity = 0.9 - (progress * 0.2);
+        lightSpread = 1 - (progress * 0.2);
+      } else if (minutes < 1140) {
+        // Sunset - sun descending toward horizon
+        const progress = (minutes - 1080) / 60;
+        sunCenterRow = GRID_ROWS - 5 + (progress * 6);
+        lightIntensity = 0.7 - (progress * 0.35);
+        lightSpread = 0.8 - (progress * 0.35);
+      } else if (minutes < 1200) {
+        // Dusk - sun sinks below horizon, light fades smoothly
+        const progress = (minutes - 1140) / 60;
+        // Ease out - fast start, slow end
+        const easedProgress = 1 - (1 - progress) * (1 - progress);
+        sunCenterRow = GRID_ROWS + 1 + (easedProgress * 5);
+        lightIntensity = 0.35 * (1 - easedProgress);
+        lightSpread = 0.45 * (1 - easedProgress);
+      } else {
+        sunCenterRow = GRID_ROWS + 10;
+        lightIntensity = 0;
+        lightSpread = 0;
+      }
+
+      // Calculate star visibility - only show during true night (not sunrise/sunset)
+      let starOpacity = 0;
+      if (minutes < 300) {
+        starOpacity = 1; // Deep night
+      } else if (minutes < 360) {
+        // Pre-dawn - stars fade out quickly
+        starOpacity = 1 - ((minutes - 300) / 60);
+      } else if (minutes > 1140 && minutes < 1200) {
+        // Dusk - stars fade in
+        starOpacity = (minutes - 1140) / 60;
+      } else if (minutes >= 1200) {
+        starOpacity = 1; // Night
+      }
+      // No stars during sunrise (360-480) or sunset (1080-1140)
+
+      // Check if we're in active daytime (for buzzing effect)
+      const isDaytime = minutes >= 480 && minutes <= 1080;
+
+      allCells.forEach(cell => {
+        const { row, col, isStar, starBrightness, element } = cell;
+        
+        // Calculate distance from sun center (elliptical)
+        const rowDist = row - sunCenterRow;
+        const colDist = (col - centerCol) / 3.5; // Wider spread horizontally
+        const distFromSun = Math.sqrt(rowDist * rowDist + colDist * colDist);
+        
+        let cellColor, cellGlow = '', cellOpacity = 1;
+        
+        // Stars with twinkling effect - only during true night
+        if (isStar && starOpacity > 0) {
+          // Multiple sine waves for more organic twinkling
+          const twinkle1 = Math.sin(time * (1.2 + starBrightness * 0.5) + starBrightness * 20);
+          const twinkle2 = Math.sin(time * (0.7 + starBrightness * 0.3) + starBrightness * 15);
+          const twinkle = 0.4 + 0.3 * twinkle1 + 0.3 * twinkle2;
+          
+          cellColor = scheme.starColor || '#a5b4fc';
+          cellOpacity = twinkle * starOpacity * (0.5 + starBrightness * 0.5);
+          cellGlow = twinkle > 0.6 ? `0 0 ${twinkle * 4}px ${cellColor}` : '';
+        } else if (lightIntensity > 0) {
+          // Daytime sun visualization
+          const maxRadius = (GRID_ROWS * 1.2) * lightSpread;
+          const normalizedDist = distFromSun / maxRadius;
+          
+          if (normalizedDist < 0.5) {
+            // Sun core - solid bright color with subtle buzz
+            if (isDaytime) {
+              // Add subtle buzzing/shimmer effect during peak hours
+              const buzz1 = Math.sin(time * 3 + row * 0.5 + col * 0.3) * 0.08;
+              const buzz2 = Math.sin(time * 2.3 + row * 0.7 - col * 0.4) * 0.06;
+              const buzzIntensity = 1 + buzz1 + buzz2;
+              cellOpacity = Math.min(1, 0.85 + buzzIntensity * 0.15);
+            }
+            cellColor = scheme.sunColor;
+          } else if (normalizedDist < 1) {
+            // Fade edge - smooth blend to neutral with shimmer
+            const fade = (normalizedDist - 0.5) / 0.5;
+            const easedFade = 1 - (1 - fade) * (1 - fade);
+            
+            if (isDaytime && normalizedDist < 0.8) {
+              // Shimmer at the edges during daytime
+              const edgeBuzz = Math.sin(time * 2.5 + row * 0.6 + col * 0.4) * 0.1;
+              cellOpacity = Math.max(0.7, 1 - fade * 0.3 + edgeBuzz);
+            }
+            
+            cellColor = blendColors(scheme.sunColor, scheme.gridCellBg, easedFade);
+          } else {
+            // Outside sun - neutral
+            cellColor = scheme.gridCellBg;
+          }
+        } else {
+          // Night without being a star
+          cellColor = scheme.gridCellBg;
+        }
+        
+        element.style.background = cellColor;
+        element.style.boxShadow = cellGlow;
+        element.style.opacity = cellOpacity;
+      });
+    }
+
+    // Blend two colors
+    function blendColors(color1, color2, t) {
+      // Parse colors
+      const c1 = parseColor(color1);
+      const c2 = parseColor(color2);
+      
+      if (!c1 || !c2) return color1;
+      
+      const r = Math.round(c1.r + (c2.r - c1.r) * t);
+      const g = Math.round(c1.g + (c2.g - c1.g) * t);
+      const b = Math.round(c1.b + (c2.b - c1.b) * t);
+      
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Parse color to RGB
+    function parseColor(color) {
+      if (!color) return null;
+      
+      // Handle hex
+      if (color.startsWith('#')) {
+        const hex = color.slice(1);
+        if (hex.length === 3) {
+          return {
+            r: parseInt(hex[0] + hex[0], 16),
+            g: parseInt(hex[1] + hex[1], 16),
+            b: parseInt(hex[2] + hex[2], 16)
+          };
+        } else if (hex.length === 6) {
+          return {
+            r: parseInt(hex.slice(0, 2), 16),
+            g: parseInt(hex.slice(2, 4), 16),
+            b: parseInt(hex.slice(4, 6), 16)
+          };
+        }
+      }
+      
+      // Handle rgba
+      const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (rgbaMatch) {
+        return {
+          r: parseInt(rgbaMatch[1]),
+          g: parseInt(rgbaMatch[2]),
+          b: parseInt(rgbaMatch[3])
+        };
+      }
+      
+      return null;
+    }
+
+    // Update the component based on time
+    function updateComponent(minutes) {
+      const period = getTimePeriod(minutes);
+      const temp = getTemperature(minutes);
+      const scheme = COLOR_SCHEMES[period.phase];
+      
+      // Apply color scheme for current phase
+      applyColorScheme(scheme);
+      
+      // Update sky visualization
+      updateSkyVisualization(minutes, scheme);
+      
+      // Update narrative
+      document.getElementById('narrative').textContent = period.narrative;
+      
+      // Update temperature (use real temp if available)
+      const tempDisplay = userTemperature !== null ? `${userLocation} ${userTemperature}°F` : `${userLocation} ${temp}°F`;
+      document.getElementById('locationTemp').textContent = tempDisplay;
+      
+      // Update time display
+      document.getElementById('currentTime').textContent = `${formatTime(minutes)} ${userTimezone}`;
+      document.getElementById('controlTimeDisplay').textContent = formatTime(minutes);
+      
+      // Update phase badge text
+      document.getElementById('phaseBadge').textContent = period.label;
+      
+      // Update time progress and indicator
+      const progress = minutes / 1440;
+      const cardWidth = document.getElementById('timeSliderCard').offsetWidth;
+      const indicatorWidth = 5;
+      
+      const progressEl = document.getElementById('timeProgress');
+      progressEl.style.width = `${progress * 100}%`;
+      
+      const indicatorEl = document.getElementById('timeIndicator');
+      const maxLeft = cardWidth - indicatorWidth;
+      const indicatorLeft = progress * cardWidth;
+      const clampedLeft = Math.max(0, Math.min(indicatorLeft - indicatorWidth / 2, maxLeft));
+      indicatorEl.style.left = `${clampedLeft}px`;
+      
+      indicatorEl.classList.toggle('at-start', progress < 0.01);
+      indicatorEl.classList.toggle('at-end', progress > 0.99);
+      
+      // Update slider
+      document.getElementById('timeControl').value = minutes;
+    }
+
+    // User location and weather state
+    let userLocation = 'SAN FRANCISCO';
+    let userTimezone = 'PST';
+    let userTemperature = null;
+    let userCoords = null;
+
+    // Get user's current time in minutes
+    function getUserTimeInMinutes() {
+      const now = new Date();
+      return now.getHours() * 60 + now.getMinutes();
+    }
+
+    // Get timezone abbreviation
+    function getTimezoneAbbr() {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('en-US', { timeZoneName: 'short' });
+      const match = timeString.match(/[A-Z]{2,4}$/);
+      return match ? match[0] : 'LOCAL';
+    }
+
+    // Fetch user location and weather
+    async function fetchUserLocationAndWeather() {
+      // First, get timezone
+      userTimezone = getTimezoneAbbr();
+      
+      // Try to get geolocation
+      if ('geolocation' in navigator) {
+        try {
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              timeout: 5000,
+              maximumAge: 300000 // Cache for 5 minutes
+            });
+          });
+          
+          userCoords = {
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          };
+          
+          // Reverse geocode to get city name
+          try {
+            const geoResponse = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${userCoords.lat}&longitude=${userCoords.lon}&localityLanguage=en`
+            );
+            const geoData = await geoResponse.json();
+            userLocation = (geoData.city || geoData.locality || geoData.principalSubdivision || 'YOUR LOCATION').toUpperCase();
+          } catch (e) {
+            console.log('Geocoding failed, using default location');
+          }
+          
+          // Fetch weather
+          try {
+            const weatherResponse = await fetch(
+              `https://api.open-meteo.com/v1/forecast?latitude=${userCoords.lat}&longitude=${userCoords.lon}&current_weather=true&temperature_unit=fahrenheit`
+            );
+            const weatherData = await weatherResponse.json();
+            if (weatherData.current_weather) {
+              userTemperature = Math.round(weatherData.current_weather.temperature);
+            }
+          } catch (e) {
+            console.log('Weather fetch failed, using calculated temp');
+          }
+          
+        } catch (e) {
+          console.log('Geolocation denied or failed, using defaults');
+        }
+      }
+      
+      // Update display with fetched data
+      updateComponent(currentMinutes);
+    }
+
+    // Current time state for animation
+    let currentMinutes = getUserTimeInMinutes(); // Start at user's current time
+
+    // Animation loop
+    function animate(currentTime) {
+      if (!lastTime) lastTime = currentTime;
+      
+      if (isPlaying) {
+        const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+        
+        // Advance time
+        currentMinutes += deltaTime * MINUTES_PER_SECOND;
+        
+        // Loop back to start
+        if (currentMinutes >= 1440) {
+          currentMinutes = 0;
+        }
+        
+        updateComponent(currentMinutes);
+      }
+      
+      lastTime = currentTime;
+      animationFrame = requestAnimationFrame(animate);
+    }
+
+    // Toggle play/pause
+    function togglePlayPause() {
+      isPlaying = !isPlaying;
+      const hint = document.getElementById('pauseHint');
+      
+      if (isPlaying) {
+        hint.textContent = 'press space to pause';
+        hint.classList.remove('paused');
+      } else {
+        hint.textContent = 'paused';
+        hint.classList.add('paused');
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      initUnifiedGrid();
+      initTicks();
+      
+      const slider = document.getElementById('timeControl');
+      
+      // Set slider to user's current time
+      currentMinutes = getUserTimeInMinutes();
+      slider.value = currentMinutes;
+      
+      // Initial update with current time
+      updateComponent(currentMinutes);
+      
+      // Fetch user location and weather (async, will update display when ready)
+      fetchUserLocationAndWeather();
+      
+      // Start animation (paused by default so user sees their current time)
+      isPlaying = false;
+      document.getElementById('pauseHint').textContent = 'press space to pause';
+      document.getElementById('pauseHint').classList.add('paused');
+      animationFrame = requestAnimationFrame(animate);
+      
+      // Listen for slider changes (pause when manually adjusting)
+      slider.addEventListener('input', (e) => {
+        isPlaying = false;
+        const hint = document.getElementById('pauseHint');
+        hint.textContent = 'paused';
+        hint.classList.add('paused');
+        currentMinutes = parseFloat(e.target.value);
+        updateComponent(currentMinutes);
+      });
+      
+      // Space bar to toggle play/pause
+      document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          togglePlayPause();
+        }
+      });
+      
+      // Handle window resize
+      window.addEventListener('resize', () => {
+        updateComponent(currentMinutes);
+      });
+    });
+  </script>
+</body>
+</html>
